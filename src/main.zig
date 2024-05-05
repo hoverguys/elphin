@@ -23,5 +23,6 @@ pub fn main() !void {
     // Read input
     const input = try std.fs.cwd().openFile(inputPath, .{});
 
-    _ = try elf.readELF(input);
+    var map = try elf.readELF(input);
+    elf.alignSegments(&map);
 }

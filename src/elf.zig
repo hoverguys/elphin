@@ -86,6 +86,7 @@ pub const DolMap = struct {
 const DolHasBSS = 1;
 
 pub fn readELF(file: std.fs.File) !DolMap {
+
     // Create dol map
     var dolMap = DolMap{
         .header = .{
@@ -108,7 +109,8 @@ pub fn readELF(file: std.fs.File) !DolMap {
     };
 
     // Read header
-    const header = try file.reader().readStructEndian(ELFHeader, std.builtin.Endian.big);
+    const reader = file.reader();
+    const header = try reader.readStructEndian(ELFHeader, std.builtin.Endian.big);
 
     try checkELFHeader(header);
 
@@ -131,7 +133,7 @@ pub fn readELF(file: std.fs.File) !DolMap {
     try file.seekTo(phoff);
 
     for (0..phnum) |_| {
-        const programHeader = try file.reader().readStructEndian(ELFProgramHeader, std.builtin.Endian.big);
+        const programHeader = try reader.readStructEndian(ELFProgramHeader, std.builtin.Endian.big);
 
         // Skip non-loadable segments
         if (programHeader.p_type != 1) {
@@ -172,7 +174,7 @@ pub fn readELF(file: std.fs.File) !DolMap {
                 // Add as BSS segment of whatever is left between the file and memory sizes
                 // TODO: why?!
                 add_bss(&dolMap, programHeader.p_paddr + programHeader.p_filesz, programHeader.p_memsz - programHeader.p_filesz);
-                std.debug.print("Found bss segment at 0x{x}\n", .{programHeader.p_paddr + programHeader.p_filesz});
+                std.debug.print("Found bss segment (TEXT) at 0x{x}\n", .{programHeader.p_paddr + programHeader.p_filesz});
             }
 
             std.debug.print("Found text segment at 0x{x}\n", .{programHeader.p_vaddr});
@@ -188,7 +190,7 @@ pub fn readELF(file: std.fs.File) !DolMap {
             // TODO: ????
             if (programHeader.p_filesz == 0) {
                 add_bss(&dolMap, programHeader.p_paddr, programHeader.p_memsz);
-                std.debug.print("Found bss segment at 0x{x}\n", .{programHeader.p_vaddr});
+                std.debug.print("Found bss segment (DATA) at 0x{x}\n", .{programHeader.p_vaddr});
                 continue;
             }
 
@@ -222,6 +224,32 @@ fn add_bss(map: *DolMap, addr: u32, size: u32) void {
         map.header.bss_addr = addr;
         map.header.bss_size = size;
         map.flags |= DolHasBSS;
+    }
+}
+
+const DOLAlignment = 64;
+pub fn alignSegments(map: *DolMap) void {
+    std.debug.print("Mapping DOL to 64 byte alignment\n", .{});
+    var currentPosition = std.mem.alignForward(u32, @sizeOf(DolHeader), DOLAlignment);
+
+    for (0..map.text_cnt) |i| {
+        std.debug.print(" - Mapping text segment {d} at 0x{x} -> 0x{x}\n", .{ i, map.header.text_addr[i], currentPosition });
+        map.header.text_off[i] = currentPosition;
+        currentPosition = std.mem.alignForward(u32, currentPosition + map.header.text_size[i], DOLAlignment);
+    }
+
+    for (0..map.data_cnt) |i| {
+        std.debug.print(" - Mapping data segment {d} at 0x{x} -> 0x{x}\n", .{ i, map.header.data_addr[i], currentPosition });
+        map.header.data_off[i] = currentPosition;
+        currentPosition = std.mem.alignForward(u32, currentPosition + map.header.data_size[i], DOLAlignment);
+    }
+
+    // Add dummy segments if no TEXT or DATA segments are present
+    if (map.text_cnt == 0) {
+        map.header.text_off[0] = std.mem.alignForward(u32, @sizeOf(DolHeader), DOLAlignment);
+    }
+    if (map.data_cnt == 0) {
+        map.header.data_off[0] = std.mem.alignForward(u32, @sizeOf(DolHeader), DOLAlignment);
     }
 }
 
