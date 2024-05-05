@@ -1,5 +1,6 @@
 const std = @import("std");
 const elf = @import("elf.zig");
+const dol = @import("dol.zig");
 
 pub fn main() !void {
     // Get allocator
@@ -12,7 +13,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 3) {
-        std.debug.print("Usage: {s} <input.elf> <output.dol>\n", .{args[0]});
+        std.log.err("Usage: {s} <input.elf> <output.dol>", .{args[0]});
         std.process.exit(1);
     }
 
@@ -22,13 +23,13 @@ pub fn main() !void {
     // Read input
     const input = try std.fs.cwd().openFile(inputPath, .{});
     defer input.close();
-    var map = try elf.readELF(input);
+    const map = try elf.readELF(input);
 
     // Align segments to 64 byte boundaries
-    elf.alignSegments(&map);
+    const dolMap = dol.createDOLMapping(map);
 
     // Write header and copy over segments from input
     const output = try std.fs.cwd().createFile(outputPath, .{});
     defer output.close();
-    try elf.writeDOL(map, input, output);
+    try dol.writeDOL(dolMap, input, output);
 }

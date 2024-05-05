@@ -4,15 +4,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const dolLib = b.addStaticLibrary(.{
-        .name = "elphin",
-        .root_source_file = b.path("src/dol.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    b.installArtifact(dolLib);
-
     const exe = b.addExecutable(.{
         .name = "elphin",
         .root_source_file = b.path("src/main.zig"),
