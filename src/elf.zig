@@ -255,3 +255,22 @@ fn checkELFHeader(header: ELFHeader) !void {
         return ELFError.NoEntrypoint;
     }
 }
+
+test "readELF: parses known .elf" {
+    const input = try std.fs.cwd().openFile("testdata/example.elf", .{});
+    defer input.close();
+
+    const map = try readELF(input);
+    try std.testing.expectEqual(0x80003100, map.entryPoint);
+    try std.testing.expectEqual(1, map.textCount);
+    try std.testing.expectEqual(1, map.dataCount);
+    try std.testing.expectEqual(0x80003100, map.text[0].address);
+    try std.testing.expectEqual(0x2DD0, map.text[0].size);
+    try std.testing.expectEqual(0x3100, map.text[0].offset);
+    try std.testing.expectEqual(0x80005ed0, map.data[0].address);
+    try std.testing.expectEqual(0xD0, map.data[0].size);
+    try std.testing.expectEqual(0x5ed0, map.data[0].offset);
+    try std.testing.expectEqual(true, map.hasBSS);
+    try std.testing.expectEqual(0x80005fa0, map.bssAddress);
+    try std.testing.expectEqual(0x160, map.bssSize);
+}
