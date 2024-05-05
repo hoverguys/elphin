@@ -18,11 +18,17 @@ pub fn main() !void {
 
     const inputPath = args[1];
     const outputPath = args[2];
-    _ = outputPath; // autofix
 
     // Read input
     const input = try std.fs.cwd().openFile(inputPath, .{});
-
+    defer input.close();
     var map = try elf.readELF(input);
+
+    // Align segments to 64 byte boundaries
     elf.alignSegments(&map);
+
+    // Write header and copy over segments from input
+    const output = try std.fs.cwd().createFile(outputPath, .{});
+    defer output.close();
+    try elf.writeDOL(map, input, output);
 }

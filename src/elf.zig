@@ -1,4 +1,5 @@
 const std = @import("std");
+const oldzig = @import("oldzig.zig");
 
 // Cool website for ELF info:
 // https://www.man7.org/linux/man-pages/man5/elf.5.html
@@ -250,6 +251,50 @@ pub fn alignSegments(map: *DolMap) void {
     }
     if (map.data_cnt == 0) {
         map.header.data_off[0] = std.mem.alignForward(u32, @sizeOf(DolHeader), DOLAlignment);
+    }
+}
+
+pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File) !void {
+    const reader = input.reader();
+    const writer = output.writer();
+
+    // Write header
+    try oldzig.writeStructEndian(writer, map.header, std.builtin.Endian.big);
+
+    // Create buffer for pump
+    var fifo = std.fifo.LinearFifo(u8, .{ .Static = 1024 * 1024 }).init();
+    defer fifo.deinit();
+
+    // Copy over text segments
+    for (0..map.text_cnt) |i| {
+        // Seek to text segment
+        try input.seekTo(map.text_elf_off[i]);
+
+        // Create limited reader to segment size
+        var limitedReader = std.io.limitedReader(reader, map.header.text_size[i]);
+
+        // Seek to destination
+        try output.seekTo(map.header.text_off[i]);
+
+        // Copy segment
+        std.debug.print("Copying text segment {d} at 0x{x} -> 0x{x}\n", .{ i, map.header.text_addr[i], map.header.text_off[i] });
+        try fifo.pump(&limitedReader, writer);
+    }
+
+    // Copy over data segments
+    for (0..map.data_cnt) |i| {
+        // Seek to text segment
+        try input.seekTo(map.data_elf_off[i]);
+
+        // Create limited reader to segment size
+        var limitedReader = std.io.limitedReader(reader, map.header.data_size[i]);
+
+        // Seek to destination
+        try output.seekTo(map.header.data_off[i]);
+
+        // Copy segment
+        std.debug.print("Copying data segment {d} at 0x{x} -> 0x{x}\n", .{ i, map.header.data_addr[i], map.header.data_off[i] });
+        try fifo.pump(&limitedReader, writer);
     }
 }
 
