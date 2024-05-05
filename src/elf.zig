@@ -283,7 +283,7 @@ pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File) !void {
 
     // Copy over data segments
     for (0..map.data_cnt) |i| {
-        // Seek to text segment
+        // Seek to data segment
         try input.seekTo(map.data_elf_off[i]);
 
         // Create limited reader to segment size
