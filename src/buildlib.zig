@@ -14,7 +14,10 @@ options: ConvertFileOptions,
 
 pub fn convertExecutable(b: *std.Build, artifact: *std.Build.Step.Compile, options: ConvertFileOptions) *Self {
     const inputPath = artifact.getEmittedBin().getPath(b);
-    return convertFile(b, inputPath, options);
+    const build = convertFile(b, inputPath, options);
+    build.step.dependOn(&artifact.step);
+
+    return build;
 }
 
 pub fn convertInstalled(b: *std.Build, path: []const u8, options: ConvertFileOptions) *Self {
