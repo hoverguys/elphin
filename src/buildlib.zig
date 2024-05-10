@@ -12,9 +12,17 @@ step: std.Build.Step,
 path: []const u8,
 options: ConvertFileOptions,
 
-pub fn convertFile(b: *std.Build, file: []const u8, options: ConvertFileOptions) *Self {
-    const convert = b.step("convert", "Converts the compiled .elf file into .dol");
+pub fn convertExecutable(b: *std.Build, artifact: *std.Build.Step.Compile, options: ConvertFileOptions) *Self {
+    const inputPath = artifact.getEmittedBin().getPath(b);
+    return convertFile(b, inputPath, options);
+}
 
+pub fn convertInstalled(b: *std.Build, path: []const u8, options: ConvertFileOptions) *Self {
+    const inputPath = b.getInstallPath(options.installDir, path);
+    return convertFile(b, inputPath, options);
+}
+
+fn convertFile(b: *std.Build, file: []const u8, options: ConvertFileOptions) *Self {
     const self = b.allocator.create(Self) catch @panic("OOM");
     self.* = .{
         .step = std.Build.Step.init(.{
@@ -27,8 +35,6 @@ pub fn convertFile(b: *std.Build, file: []const u8, options: ConvertFileOptions)
         .options = options,
     };
 
-    convert.dependOn(&self.step);
-
     return self;
 }
 
@@ -36,18 +42,13 @@ fn make(step: *std.Build.Step, _: *std.Progress.Node) !void {
     const self: *Self = @fieldParentPtr("step", step);
     const b = step.owner;
 
-    // Get input path
-    const inputPath = b.getInstallPath(self.options.installDir, self.path);
-
     // Read input
-    const input = try std.fs.cwd().openFile(inputPath, .{});
+    const input = try std.fs.cwd().openFile(self.path, .{});
     defer input.close();
 
     // Get output path or calculate it from the input
-    const destination = if (self.options.filename) |name|
-        b.getInstallPath(self.options.installDir, name)
-    else
-        calculateOutputName(b, inputPath);
+    const name = self.options.filename orelse calculateOutputName(b, std.fs.path.basename(self.path));
+    const destination = b.getInstallPath(self.options.installDir, name);
 
     // Create output file
     const output = try std.fs.cwd().createFile(destination, .{});

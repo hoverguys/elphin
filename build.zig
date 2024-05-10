@@ -46,4 +46,5 @@ pub fn addModule(b: *std.Build) void {
     });
 }
 
-pub const buildlib = @import("src/buildlib.zig");
+pub const convertInstalled = @import("src/buildlib.zig").convertInstalled;
+pub const convertExecutable = @import("src/buildlib.zig").convertExecutable;
