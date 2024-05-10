@@ -45,3 +45,5 @@ pub fn addModule(b: *std.Build) void {
         .root_source_file = .{ .path = "src/lib.zig" },
     });
 }
+
+pub usingnamespace @import("src/lib.zig");
