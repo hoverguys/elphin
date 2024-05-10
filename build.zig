@@ -46,4 +46,4 @@ pub fn addModule(b: *std.Build) void {
     });
 }
 
-pub usingnamespace @import("src/lib.zig");
+pub const buildlib = @import("src/buildlib.zig");

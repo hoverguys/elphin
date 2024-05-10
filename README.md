@@ -8,7 +8,9 @@ Turns your ELFs into DOLphins using the power of Zig (and CPU cycles).
 
 ## Usage
 
-`elphin input.elf output.dol`
+Binary: `elphin input.elf output.dol`
+
+You can embed elphin as part of a Zig build pipeline by following the example in `example-ci`
 
 ## License
 
