@@ -1,6 +1,5 @@
 const std = @import("std");
-const elf = @import("elf.zig");
-const dol = @import("dol.zig");
+const lib = @import("lib.zig");
 
 pub fn main() !void {
     // Get allocator
@@ -23,13 +22,10 @@ pub fn main() !void {
     // Read input
     const input = try std.fs.cwd().openFile(inputPath, .{});
     defer input.close();
-    const map = try elf.readELF(input);
-
-    // Align segments to 64 byte boundaries
-    const dolMap = dol.createDOLMapping(map);
 
     // Write header and copy over segments from input
     const output = try std.fs.cwd().createFile(outputPath, .{});
     defer output.close();
-    try dol.writeDOL(dolMap, input, output);
+
+    try lib.convert(input, output);
 }
