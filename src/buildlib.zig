@@ -9,11 +9,11 @@ const ConvertFileOptions = struct {
 };
 
 step: std.Build.Step,
-path: []const u8,
+path: std.Build.LazyPath,
 options: ConvertFileOptions,
 
 pub fn convertExecutable(b: *std.Build, artifact: *std.Build.Step.Compile, options: ConvertFileOptions) *Self {
-    const inputPath = artifact.getEmittedBin().getPath(b);
+    const inputPath = artifact.getEmittedBin();
     const build = convertFile(b, inputPath, options);
     build.step.dependOn(&artifact.step);
 
@@ -22,10 +22,10 @@ pub fn convertExecutable(b: *std.Build, artifact: *std.Build.Step.Compile, optio
 
 pub fn convertInstalled(b: *std.Build, path: []const u8, options: ConvertFileOptions) *Self {
     const inputPath = b.getInstallPath(options.installDir, path);
-    return convertFile(b, inputPath, options);
+    return convertFile(b, .{ .path = inputPath }, options);
 }
 
-fn convertFile(b: *std.Build, file: []const u8, options: ConvertFileOptions) *Self {
+fn convertFile(b: *std.Build, file: std.Build.LazyPath, options: ConvertFileOptions) *Self {
     const self = b.allocator.create(Self) catch @panic("OOM");
     self.* = .{
         .step = std.Build.Step.init(.{
@@ -46,11 +46,12 @@ fn make(step: *std.Build.Step, _: *std.Progress.Node) !void {
     const b = step.owner;
 
     // Read input
-    const input = try std.fs.cwd().openFile(self.path, .{});
+    const inputPath = self.path.getPath2(b, step);
+    const input = try std.fs.cwd().openFile(inputPath, .{});
     defer input.close();
 
     // Get output path or calculate it from the input
-    const name = self.options.filename orelse calculateOutputName(b, std.fs.path.basename(self.path));
+    const name = self.options.filename orelse calculateOutputName(b, std.fs.path.basename(inputPath));
     const destination = b.getInstallPath(self.options.installDir, name);
 
     // Create output file
