@@ -47,18 +47,26 @@ fn make(step: *std.Build.Step, _: *std.Progress.Node) !void {
 
     // Read input
     const inputPath = self.path.getPath2(b, step);
-    const input = try std.fs.cwd().openFile(inputPath, .{});
+    const input = try std.fs.openFileAbsolute(inputPath, .{});
     defer input.close();
 
-    // Get output path or calculate it from the input
-    const name = self.options.filename orelse calculateOutputName(b, std.fs.path.basename(inputPath));
-    const destination = b.getInstallPath(self.options.installDir, name);
+    // Create output file next to input
+    // We could create this directly in its final place but the directory usually
+    // does not exist at that time and this saves us some fs.makePath shenanigans
+    const name = calculateOutputName(b, inputPath);
 
     // Create output file
-    const output = try std.fs.cwd().createFile(destination, .{});
+    const output = try std.fs.createFileAbsolute(name, .{});
     defer output.close();
 
+    // Run conversion
     try lib.convert(input, output);
+
+    // Copy file to destination
+    const cwd = std.fs.cwd();
+    const finalFilename = self.options.filename orelse std.fs.path.basename(name);
+    const destination = b.getInstallPath(self.options.installDir, finalFilename);
+    _ = try cwd.updateFile(name, cwd, destination, .{});
 }
 
 fn calculateOutputName(b: *std.Build, path: []const u8) []const u8 {
