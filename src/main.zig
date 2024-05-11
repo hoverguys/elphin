@@ -27,5 +27,5 @@ pub fn main() !void {
     const output = try std.fs.cwd().createFile(outputPath, .{});
     defer output.close();
 
-    try lib.convert(input, output);
+    try lib.convert(input, output, true);
 }

@@ -78,7 +78,7 @@ pub const ELFSegments = struct {
     bssSize: u32,
 };
 
-pub fn readELF(file: std.fs.File) !ELFSegments {
+pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
     // Create segment map
     var elfMap: ELFSegments = .{
         .entryPoint = undefined,
@@ -156,10 +156,14 @@ pub fn readELF(file: std.fs.File) !ELFSegments {
             if (programHeader.p_filesz < programHeader.p_memsz) {
                 // Add as BSS segment of whatever is left between the file and memory sizes
                 addOrExtendBSS(&elfMap, programHeader.p_paddr + programHeader.p_filesz, programHeader.p_memsz - programHeader.p_filesz);
-                std.log.debug("Found bss segment (TEXT) at 0x{x}", .{programHeader.p_paddr + programHeader.p_filesz});
+                if (verbose) {
+                    std.log.debug("Found bss segment (TEXT) at 0x{x}", .{programHeader.p_paddr + programHeader.p_filesz});
+                }
             }
 
-            std.log.debug("Found text segment at 0x{x}", .{programHeader.p_vaddr});
+            if (verbose) {
+                std.log.debug("Found text segment at 0x{x}", .{programHeader.p_vaddr});
+            }
 
             elfMap.text[elfMap.textCount] = .{
                 .address = programHeader.p_paddr,
@@ -170,11 +174,12 @@ pub fn readELF(file: std.fs.File) !ELFSegments {
             elfMap.textCount += 1;
         } else {
             // DATA or BSS segment
-
-            // TODO: ????
             if (programHeader.p_filesz == 0) {
                 addOrExtendBSS(&elfMap, programHeader.p_paddr, programHeader.p_memsz);
-                std.log.debug("Found bss segment (DATA) at 0x{x}", .{programHeader.p_vaddr});
+
+                if (verbose) {
+                    std.log.debug("Found bss segment (DATA) at 0x{x}", .{programHeader.p_vaddr});
+                }
                 continue;
             }
 
@@ -183,7 +188,9 @@ pub fn readELF(file: std.fs.File) !ELFSegments {
                 return ELFError.TooManyDataSegments;
             }
 
-            std.log.debug("Found data segment at 0x{x}", .{programHeader.p_vaddr});
+            if (verbose) {
+                std.log.debug("Found data segment at 0x{x}", .{programHeader.p_vaddr});
+            }
 
             elfMap.data[elfMap.dataCount] = .{
                 .address = programHeader.p_paddr,

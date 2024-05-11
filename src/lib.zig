@@ -10,13 +10,13 @@ pub const writeDOL = dol.writeDOL;
 
 /// Converts an ELF file to a DOL file.
 /// `input` and `output` must be open files.
-pub fn convert(input: anytype, output: anytype) !void {
+pub fn convert(input: anytype, output: anytype, verbose: bool) !void {
     // Read input
-    const map = try elf.readELF(input);
+    const map = try elf.readELF(input, verbose);
 
     // Align segments to 64 byte boundaries
     const dolMap = dol.createDOLMapping(map);
 
     // Write header and copy over segments from input
-    try dol.writeDOL(dolMap, input, output);
+    try dol.writeDOL(dolMap, input, output, verbose);
 }

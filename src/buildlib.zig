@@ -60,7 +60,7 @@ fn make(step: *std.Build.Step, _: *std.Progress.Node) !void {
     defer output.close();
 
     // Run conversion
-    try lib.convert(input, output);
+    try lib.convert(input, output, false);
 
     // Copy file to destination
     const cwd = std.fs.cwd();

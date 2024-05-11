@@ -83,7 +83,7 @@ pub fn createDOLMapping(segments: elf.ELFSegments) DolMap {
     return dolMap;
 }
 
-pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File) !void {
+pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File, verbose: bool) !void {
     const reader = input.reader();
     const writer = output.writer();
 
@@ -106,7 +106,9 @@ pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File) !void {
         try output.seekTo(map.header.textOffsets[i]);
 
         // Copy segment
-        std.log.debug("Copying text segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.textAddress[i], map.header.textOffsets[i] });
+        if (verbose) {
+            std.log.debug("Copying text segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.textAddress[i], map.header.textOffsets[i] });
+        }
         try fifo.pump(&limitedReader, writer);
     }
 
@@ -122,7 +124,9 @@ pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File) !void {
         try output.seekTo(map.header.dataOffsets[i]);
 
         // Copy segment
-        std.log.debug("Copying data segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.dataAddress[i], map.header.dataOffsets[i] });
+        if (verbose) {
+            std.log.debug("Copying data segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.dataAddress[i], map.header.dataOffsets[i] });
+        }
         try fifo.pump(&limitedReader, writer);
     }
 }
