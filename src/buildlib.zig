@@ -70,7 +70,7 @@ fn make(step: *std.Build.Step, _: std.Progress.Node) !void {
 }
 
 fn calculateOutputName(b: *std.Build, path: []const u8) []const u8 {
-    const extIndex = std.mem.lastIndexOfScalar(u8, path, '.');
+    const extIndex = std.mem.lastIndexOfScalar(u8, std.fs.path.basename(path), '.');
     const filenameWithoutExtension = if (extIndex) |index| path[0..index] else path;
     return b.fmt("{s}.dol", .{filenameWithoutExtension});
 }
