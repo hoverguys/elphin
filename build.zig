@@ -42,7 +42,7 @@ pub fn build(b: *std.Build) void {
 /// Module function for depending on the elphin module
 pub fn addModule(b: *std.Build) void {
     _ = b.addModule("elphin", .{
-        .root_source_file = .{ .path = "src/lib.zig" },
+        .root_source_file = b.path("src/lib.zig"),
     });
 }
 

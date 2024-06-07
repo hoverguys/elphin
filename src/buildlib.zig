@@ -22,7 +22,7 @@ pub fn convertExecutable(b: *std.Build, artifact: *std.Build.Step.Compile, optio
 
 pub fn convertInstalled(b: *std.Build, path: []const u8, options: ConvertFileOptions) *Self {
     const inputPath = b.getInstallPath(options.installDir, path);
-    return convertFile(b, .{ .path = inputPath }, options);
+    return convertFile(b, .{ .cwd_relative = inputPath }, options);
 }
 
 fn convertFile(b: *std.Build, file: std.Build.LazyPath, options: ConvertFileOptions) *Self {
@@ -41,7 +41,7 @@ fn convertFile(b: *std.Build, file: std.Build.LazyPath, options: ConvertFileOpti
     return self;
 }
 
-fn make(step: *std.Build.Step, _: *std.Progress.Node) !void {
+fn make(step: *std.Build.Step, _: std.Progress.Node) !void {
     const self: *Self = @fieldParentPtr("step", step);
     const b = step.owner;
 
