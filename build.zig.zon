@@ -1,7 +1,7 @@
 .{
-    .name = "elphin",
+    .name = .elphin,
     .version = "0.1.6",
-    .minimum_zig_version = "0.12.0",
+    .minimum_zig_version = "0.14.0",
     .paths = .{
         "build.zig",
         "build.zig.zon",
@@ -9,4 +9,5 @@
         "LICENSE",
         "README.md",
     },
+    .fingerprint = 0x86f703b336c2985a,
 }

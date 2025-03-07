@@ -41,7 +41,7 @@ fn convertFile(b: *std.Build, file: std.Build.LazyPath, options: ConvertFileOpti
     return self;
 }
 
-fn make(step: *std.Build.Step, _: std.Progress.Node) !void {
+fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) !void {
     const self: *Self = @fieldParentPtr("step", step);
     const b = step.owner;
 

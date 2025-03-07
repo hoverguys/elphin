@@ -1,5 +1,5 @@
 .{
-    .name = "example-ci",
+    .name = .example_ci,
     .version = "0.0.0",
 
     .dependencies = .{
@@ -9,4 +9,6 @@
     .paths = .{
         "",
     },
+
+    .fingerprint = 0x2f595326a2750496,
 }
