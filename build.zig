@@ -30,7 +30,11 @@ pub fn build(b: *std.Build) void {
 
     // Testing
     const elf_unit_tests = b.addTest(.{
-        .root_module = module,
+        .root_module = b.addModule("elphin", .{
+            .root_source_file = b.path("src/elf.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     const run_elf_unit_tests = b.addRunArtifact(elf_unit_tests);

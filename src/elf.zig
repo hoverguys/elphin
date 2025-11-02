@@ -229,7 +229,10 @@ test "readELF: parses known .elf" {
     const input = try std.fs.cwd().openFile("testdata/example.elf", .{});
     defer input.close();
 
-    const map = try readELF(input, false);
+    var elfBuffer: [1024]u8 = undefined;
+    var elfReader = input.reader(&elfBuffer);
+
+    const map = try readELF(&elfReader, false);
     try std.testing.expectEqual(0x80003100, map.entryPoint);
     try std.testing.expectEqual(1, map.textCount);
     try std.testing.expectEqual(1, map.dataCount);
