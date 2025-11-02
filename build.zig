@@ -4,11 +4,15 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable(.{
-        .name = "elphin",
+    const module = b.addModule("elphin", .{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "elphin",
+        .root_module = module,
     });
 
     b.installArtifact(exe);
@@ -24,13 +28,9 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    addModule(b);
-
     // Testing
     const elf_unit_tests = b.addTest(.{
-        .root_source_file = b.path("src/elf.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = module,
     });
 
     const run_elf_unit_tests = b.addRunArtifact(elf_unit_tests);
@@ -38,13 +38,3 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_elf_unit_tests.step);
 }
-
-/// Module function for depending on the elphin module
-pub fn addModule(b: *std.Build) void {
-    _ = b.addModule("elphin", .{
-        .root_source_file = b.path("src/lib.zig"),
-    });
-}
-
-pub const convertInstalled = @import("src/buildlib.zig").convertInstalled;
-pub const convertExecutable = @import("src/buildlib.zig").convertExecutable;

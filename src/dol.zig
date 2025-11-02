@@ -1,6 +1,5 @@
 const std = @import("std");
 const elf = @import("elf.zig");
-const oldzig = @import("oldzig.zig");
 
 pub const MaximumTextSegments = 7;
 pub const MaximumDataSegments = 11;
@@ -31,16 +30,16 @@ pub fn createDOLMapping(segments: elf.ELFSegments) DolMap {
     // Create dol map
     var dolMap = DolMap{
         .header = .{
-            .textOffsets = .{0} ** 7,
-            .dataOffsets = .{0} ** 11,
-            .textAddress = .{0} ** 7,
-            .dataAddress = .{0} ** 11,
-            .textSize = .{0} ** 7,
-            .dataSize = .{0} ** 11,
+            .textOffsets = @splat(0),
+            .dataOffsets = @splat(0),
+            .textAddress = @splat(0),
+            .dataAddress = @splat(0),
+            .textSize = @splat(0),
+            .dataSize = @splat(0),
             .BSSAddress = segments.bssAddress,
             .BSSSize = segments.bssSize,
             .entrypoint = segments.entryPoint,
-            .reserved = .{0} ** 7,
+            .reserved = @splat(0),
         },
         .textCount = segments.textCount,
         .dataCount = segments.dataCount,
@@ -83,50 +82,47 @@ pub fn createDOLMapping(segments: elf.ELFSegments) DolMap {
     return dolMap;
 }
 
-pub fn writeDOL(map: DolMap, input: std.fs.File, output: std.fs.File, verbose: bool) !void {
-    const reader = input.reader();
-    const writer = output.writer();
-
+pub fn writeDOL(map: DolMap, reader: *std.fs.File.Reader, writer: *std.fs.File.Writer, verbose: bool) !void {
     // Write header
-    try oldzig.writeStructEndian(writer, map.header, std.builtin.Endian.big);
-
-    // Create buffer for pump
-    var fifo = std.fifo.LinearFifo(u8, .{ .Static = 1024 * 1024 }).init();
-    defer fifo.deinit();
+    try writer.interface.writeStruct(map.header, .big);
 
     // Copy over text segments
     for (0..map.textCount) |i| {
-        // Seek to text segment
-        try input.seekTo(map.originalFileTextOffset[i]);
+        const segmentSize = map.header.textSize[i];
+        const source_offset = map.originalFileTextOffset[i];
+        const destination_offset = map.header.textOffsets[i];
 
-        // Create limited reader to segment size
-        var limitedReader = std.io.limitedReader(reader, map.header.textSize[i]);
+        // Seek to text segment
+        try reader.seekTo(source_offset);
 
         // Seek to destination
-        try output.seekTo(map.header.textOffsets[i]);
+        try writer.seekTo(destination_offset);
 
         // Copy segment
         if (verbose) {
-            std.log.debug("Copying text segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.textAddress[i], map.header.textOffsets[i] });
+            std.log.debug("Copying text segment {d} at 0x{x} -> 0x{x}, size {d}", .{ i, map.header.textAddress[i], destination_offset, segmentSize });
         }
-        try fifo.pump(&limitedReader, writer);
+
+        try reader.interface.streamExact(&writer.interface, segmentSize);
     }
 
     // Copy over data segments
     for (0..map.dataCount) |i| {
-        // Seek to data segment
-        try input.seekTo(map.originalFileDataOffset[i]);
+        const segmentSize = map.header.dataSize[i];
+        const source_offset = map.originalFileDataOffset[i];
+        const destination_offset = map.header.dataOffsets[i];
 
-        // Create limited reader to segment size
-        var limitedReader = std.io.limitedReader(reader, map.header.dataSize[i]);
+        // Seek to data segment
+        try reader.seekTo(source_offset);
 
         // Seek to destination
-        try output.seekTo(map.header.dataOffsets[i]);
+        try writer.seekTo(destination_offset);
 
         // Copy segment
         if (verbose) {
-            std.log.debug("Copying data segment {d} at 0x{x} -> 0x{x}", .{ i, map.header.dataAddress[i], map.header.dataOffsets[i] });
+            std.log.debug("Copying data segment {d} at 0x{x} -> 0x{x}, size {d}", .{ i, map.header.dataAddress[i], destination_offset, segmentSize });
         }
-        try fifo.pump(&limitedReader, writer);
+
+        try reader.interface.streamExact(&writer.interface, segmentSize);
     }
 }

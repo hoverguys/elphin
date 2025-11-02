@@ -1,5 +1,6 @@
 const std = @import("std");
 const dol = @import("dol.zig");
+const elf = @import("std").elf;
 
 // Cool website for ELF info:
 // https://www.man7.org/linux/man-pages/man5/elf.5.html
@@ -20,45 +21,7 @@ pub const ELFError = error{
     TooManyDataSegments,
 };
 
-const ELFMagic = "\x7fELF";
-const ELFClass_32bit = 1;
-const ELFDataFormat_BigEndian = 2;
 const ELFVersion_Current = 1;
-const ELFType_Executable = 2;
-const ELFMachine_PowerPC = 20;
-
-const PSFlags_Executable = 1;
-const PSFlags_Writable = 2;
-const PSFlags_Readable = 4;
-
-const ELFHeader = extern struct {
-    e_ident: [16]u8,
-    e_type: u16,
-    e_machine: u16,
-    e_version: u32,
-    e_entry: u32,
-    e_phoff: u32,
-    e_shoff: u32,
-    e_flags: u32,
-    e_ehsize: u16,
-    e_phentsize: u16,
-    e_phnum: u16,
-    e_shentsize: u16,
-    e_shnum: u16,
-    e_shstrndx: u16,
-};
-
-const ELFProgramHeader = extern struct {
-    p_type: u32,
-    p_offset: u32,
-    p_vaddr: u32,
-    p_paddr: u32,
-    p_filesz: u32,
-    p_memsz: u32,
-    p_flags: u32,
-    p_align: u32,
-};
-
 const DolHasBSS = 1;
 
 pub const SegmentInfo = struct {
@@ -78,7 +41,7 @@ pub const ELFSegments = struct {
     bssSize: u32,
 };
 
-pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
+pub fn readELF(reader: *std.fs.File.Reader, verbose: bool) !ELFSegments {
     // Create segment map
     var elfMap: ELFSegments = .{
         .entryPoint = undefined,
@@ -92,8 +55,7 @@ pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
     };
 
     // Read header
-    const reader = file.reader();
-    const header = try reader.readStructEndian(ELFHeader, std.builtin.Endian.big);
+    const header = try reader.interface.takeStruct(elf.Elf32_Ehdr, .big);
 
     try checkELFHeader(header);
 
@@ -108,15 +70,15 @@ pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
     if (programCount == 0 or programOffset == 0) {
         return ELFError.MissingProgramHeader;
     }
-    if (header.e_phentsize != @sizeOf(ELFProgramHeader)) {
+    if (header.e_phentsize != @sizeOf(elf.Elf32_Phdr)) {
         return ELFError.InvalidProgramHeaderEntrySize;
     }
 
     // Read program headers
-    try file.seekTo(programOffset);
+    try reader.seekTo(programOffset);
 
     for (0..programCount) |_| {
-        const programHeader = try reader.readStructEndian(ELFProgramHeader, std.builtin.Endian.big);
+        const programHeader = try reader.interface.takeStruct(elf.Elf32_Phdr, std.builtin.Endian.big);
 
         // Skip non-loadable segments
         if (programHeader.p_type != 1) {
@@ -131,19 +93,19 @@ pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
         }
 
         // Check if segment is readable
-        if (programHeader.p_flags & PSFlags_Readable == 0) {
+        if (programHeader.p_flags & elf.PF_R == 0) {
             std.log.debug("Warning: non-readable segment at 0x{x}", .{programHeader.p_vaddr});
         }
 
         // If the segment is executable, it's a TEXT segment
-        if (programHeader.p_flags & PSFlags_Executable != 0) {
+        if (programHeader.p_flags & elf.PF_X != 0) {
             // Do we have too many text segments?
             if (elfMap.textCount >= dol.MaximumTextSegments) {
                 return ELFError.TooManyTextSegments;
             }
 
             // Check if segment is writable
-            if (programHeader.p_flags & PSFlags_Writable != 0) {
+            if (programHeader.p_flags & elf.PF_W != 0) {
                 std.log.debug("Warning: segment at 0x{x} is both executable and writable", .{programHeader.p_vaddr});
             }
 
@@ -162,7 +124,7 @@ pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
             }
 
             if (verbose) {
-                std.log.debug("Found text segment at 0x{x}", .{programHeader.p_vaddr});
+                std.log.debug("Found text segment at 0x{x}, size {d}", .{ programHeader.p_vaddr, programHeader.p_filesz });
             }
 
             elfMap.text[elfMap.textCount] = .{
@@ -189,7 +151,7 @@ pub fn readELF(file: std.fs.File, verbose: bool) !ELFSegments {
             }
 
             if (verbose) {
-                std.log.debug("Found data segment at 0x{x}", .{programHeader.p_vaddr});
+                std.log.debug("Found data segment at 0x{x}, size {d}", .{ programHeader.p_vaddr, programHeader.p_filesz });
             }
 
             elfMap.data[elfMap.dataCount] = .{
@@ -221,19 +183,19 @@ fn addOrExtendBSS(map: *ELFSegments, addr: u32, size: u32) void {
     map.hasBSS = true;
 }
 
-fn checkELFHeader(header: ELFHeader) !void {
+fn checkELFHeader(header: elf.Elf32_Ehdr) !void {
     // Check magic
-    if (!std.mem.eql(u8, header.e_ident[0..4], ELFMagic)) {
+    if (!std.mem.eql(u8, header.e_ident[0..4], elf.MAGIC)) {
         return ELFError.InvalidMagic;
     }
 
     // Check class
-    if (header.e_ident[4] != ELFClass_32bit) {
+    if (header.e_ident[4] != elf.ELFCLASS32) {
         return ELFError.InvalidClass;
     }
 
     // Check byte order
-    if (header.e_ident[5] != ELFDataFormat_BigEndian) {
+    if (header.e_ident[5] != elf.ELFDATA2MSB) {
         return ELFError.InvalidByteOrder;
     }
 
@@ -248,12 +210,12 @@ fn checkELFHeader(header: ELFHeader) !void {
     }
 
     // Check type
-    if (header.e_type != ELFType_Executable) {
+    if (header.e_type != .EXEC) {
         return ELFError.NotExecutable;
     }
 
     // Check machine
-    if (header.e_machine != ELFMachine_PowerPC) {
+    if (header.e_machine != .PPC) {
         return ELFError.NotPowerPC;
     }
 
