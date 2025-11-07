@@ -85,6 +85,7 @@ pub fn createDOLMapping(segments: elf.ELFSegments) DolMap {
 pub fn writeDOL(map: DolMap, reader: *std.fs.File.Reader, writer: *std.fs.File.Writer, verbose: bool) !void {
     // Write header
     try writer.interface.writeStruct(map.header, .big);
+    try writer.interface.flush();
 
     // Copy over text segments
     for (0..map.textCount) |i| {
@@ -104,6 +105,7 @@ pub fn writeDOL(map: DolMap, reader: *std.fs.File.Reader, writer: *std.fs.File.W
         }
 
         try reader.interface.streamExact(&writer.interface, segmentSize);
+        try writer.interface.flush();
     }
 
     // Copy over data segments
@@ -124,5 +126,6 @@ pub fn writeDOL(map: DolMap, reader: *std.fs.File.Reader, writer: *std.fs.File.W
         }
 
         try reader.interface.streamExact(&writer.interface, segmentSize);
+        try writer.interface.flush();
     }
 }
